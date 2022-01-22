@@ -2,6 +2,7 @@ module bnf.parser;
 import bnf.ast;
 
 import std.file;
+import std.ascii : isAlpha, isAlphaNum;
 import std.uni : isWhite;
 import std.format;
 import std.typecons;
@@ -21,7 +22,7 @@ struct Source {
         uint line;
 
         void skipWhite() {
-            while (!this.eof && isWhite(this.peek) && this.peek != '\n') {
+            while (!this.eof && isWhite(this.peek)) {
                 this.next();
             }
         }
@@ -29,6 +30,9 @@ struct Source {
             return src[p];
         }
         char next() {
+            if (src[p] == '\n') {
+                this.line++;
+            }
             return src[p++];
         }
         bool eof() {
@@ -90,28 +94,25 @@ struct Source {
 
 auto parseSyntax(ref Source src) {
     Rule[] rules = [];
-    while (true) {
-        src.skipWhite();
-        while (src.isNext('\n')) {
-            src.next();
-            src.line++;
-            src.skipWhite();
-        }
+    src.skipWhite();
 
+    while (true) {
         auto rule = parseRule(src);
         if (rule is null) {
             break;
         }
         rules ~= rule;
+
+        src.skipWhite();
     }
     return rules;
 }
 unittest {
     {
         auto src = Source.fromString(`
-<syntax>         ::= <rule> | <rule> <syntax>
-<rule>           ::= <opt-whitespace> "<" <rule-name> ">" <opt-whitespace> "::=" <opt-whitespace> <expression> <line-end>
-<opt-whitespace> ::= " " <opt-whitespace> | ""
+<syntax>         ::= <rule> | <rule> <syntax> ;
+<rule>           ::= <opt-whitespace> "<" <rule-name> ">" <opt-whitespace> "::=" <opt-whitespace> <expression> <line-end> ;
+<opt-whitespace> ::= " " <opt-whitespace> | "" ;
 `);
         const syntax = parseSyntax(src);
         assert (syntax.length == 3);
@@ -136,7 +137,15 @@ auto parseRule(ref Source src) {
     }
 
     src.skipWhite();
-    src.read("::=");
+    if (src.isNext("::=")) {
+        src.read("::=");
+    }
+    else if (src.isNext('=')) {
+        src.read('=');
+    }
+    else {
+        throw new ParseError("\"::=\" or \"=\" is expected", src);
+    }
     src.skipWhite();
 
     auto save = src.save;
@@ -147,8 +156,7 @@ auto parseRule(ref Source src) {
     }
 
     if (!src.eof) {
-        src.read('\n');
-        src.line++;
+        src.read(';');
     }
 
     return new Rule(name, expr);
@@ -162,67 +170,126 @@ unittest {
     }
 }
 
-auto parseExpression(ref Source src) {
-    AST[] lists = [];
-    while (true) {
-        if (src.eof) {
-            break;
-        }
-        auto list = parseList(src);
-        if (list is null) {
-            break;
-        }
-        lists ~= list;
-
-        src.skipWhite();
-        if (!src.eof && src.peek == '|') {
-            src.next();
-            src.skipWhite();
-        }
-        else {
-            break;
-        }
-    }
-    if (lists.length == 0) {
-        return null;
-    }
-
-    return new Choice(lists);
+AST parseExpression(ref Source src) {
+    return parseChoice(src);
 }
 unittest {
     {
         auto src = Source.fromString(`<list> | <list> <opt-whitespace> "|" <opt-whitespace> <expression>`);
         const expr = parseExpression(src);
-        assert (expr.toString == `<list> | <list> <opt-whitespace> "|" <opt-whitespace> <expression>`);
+        assert (expr.toString() == `<list> | <list> <opt-whitespace> "|" <opt-whitespace> <expression>`);
+    }
+    {
+        auto src = Source.fromString(`field {fieldsep field} [fieldsep]`);
+        const expr = parseExpression(src);
+        assert (expr.toString() == `<field> { <fieldsep> <field> } [ <fieldsep> ]`);
+    }
+    {
+        auto src = Source.fromString(`[ "-" ], digit, { digit }`);
+        const expr = parseExpression(src);
+        assert (expr.toString() == `[ "-" ] <digit> { <digit> }`);
     }
 }
 
-auto parseList(ref Source src) {
-    AST[] terms = [];
+AST parseChoice(ref Source src) {
+    src.skipWhite();
+    auto expr = parseList(src);
+    if (expr is null) {
+        return null;
+    }
+    AST[] exprs = [expr];
+    while (true) {
+        src.skipWhite();
+        if (!src.eof && src.isNext('|')) {
+            src.read('|');
+            src.skipWhite();
+            auto list = parseList(src);
+            if (list is null) {
+                throw new ParseError("expression is expected", src);
+            }
+            exprs ~= list;
+        }
+        else {
+            break;
+        }
+    }
+    return new Choice(exprs);
+}
+
+AST parseList(ref Source src) {
+    auto expr = parseParentheses(src);
+    if (expr is null) {
+        return null;
+    }
+    AST[] exprs = [expr];
 
     while (true) {
         if (src.eof) {
             break;
         }
-        auto term = parseTerm(src);
-        if (term is null) {
+        src.skipWhite();
+        if (!src.eof && src.isNext(',')) {
+            src.read(',');
+            src.skipWhite();
+        }
+        auto paren = src.parseParentheses();
+        if (paren is null) {
             break;
         }
-        terms ~= term;
+        exprs ~= paren;
         src.skipWhite();
     }
-    if (terms.length == 0) {
+
+    if (exprs.length == 1) {
+        return exprs[0];
+    }
+    return new List(exprs);
+}
+
+AST parseParentheses(ref Source src) {
+    src.skipWhite();
+    if (src.eof) {
         return null;
     }
-    return new List(terms);
-}
-unittest {
-    {
-        auto src = Source.fromString(`<opt-whitespace> "<" <rule-name> ">"`);
-        auto list = parseList(src);
-        assert (list.toString() == `<opt-whitespace> "<" <rule-name> ">"`);
+
+    if (src.isNext('[')) {
+        src.read('[');
+        auto expr = parseChoice(src);
+        if (expr is null) {
+            throw new ParseError("expression is expected", src);
+        }
+        src.skipWhite();
+        src.read(']');
+        return new Optional(expr);
     }
+    else if (src.isNext('{')) {
+        src.read('{');
+        auto expr = parseChoice(src);
+        if (expr is null) {
+            throw new ParseError("expression is expected", src);
+        }
+        src.skipWhite();
+        src.read('}');
+        return new Repeat(expr);
+    }
+    else if (src.isNext('(')) {
+        src.read('(');
+        auto expr = parseChoice(src);
+        if (expr is null) {
+            throw new ParseError("expression is expected", src);
+        }
+        src.skipWhite();
+        src.read(')');
+        return expr;
+    }
+
+    auto term = parseTerm(src);
+    if (term is null) {
+        return null;
+    }
+    return term;
 }
+
 
 auto parseTerm(ref Source src) {
     auto literal = parseLiteral(src);
@@ -253,6 +320,13 @@ AST parseRuleName(ref Source src) {
             buf ~= src.next();
         }
     }
+    else if (isAlpha(src.peek)) {
+        char[] buf = [];
+        while (!src.eof && (isAlphaNum(src.peek) || src.peek == '_')) {
+            buf ~= src.next();
+        }
+        return new RuleName(buf.idup);
+    }
     return null;
 }
 unittest {
@@ -260,6 +334,11 @@ unittest {
         auto src = Source.fromString(`<rule1>`);
         auto ruleName = parseRuleName(src);
         assert (ruleName.toString == `<rule1>`);
+    }
+    {
+        auto src = Source.fromString(`rule2`);
+        auto ruleName = parseRuleName(src);
+        assert (ruleName.toString == `<rule2>`);
     }
 }
 

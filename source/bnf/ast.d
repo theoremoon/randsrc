@@ -5,11 +5,13 @@ import std.conv : to;
 import std.string;
 
 enum ASTType {
+    OPTIONAL,
     REPEAT,
     CHOICE,
     LIST,
     RULENAME,
     LITERAL,
+    EOF,
 }
 
 abstract class AST {
@@ -28,6 +30,24 @@ class Rule {
         }
 }
 
+class Optional : AST {
+    private:
+        AST rule;
+    public:
+        this(AST rule) {
+            this.rule = rule;
+        }
+        override string toString() const {
+            return "[ %s ]".format(this.rule.toString());
+        }
+        override ASTType type() const {
+            return ASTType.OPTIONAL;
+        }
+        const(AST) getRule() const {
+            return this.rule;
+        }
+}
+
 class Repeat : AST {
     private:
         AST rule;
@@ -36,10 +56,13 @@ class Repeat : AST {
             this.rule = rule;
         }
         override string toString() const {
-            return "[%s]".format(this.rule.toString());
+            return "{ %s }".format(this.rule.toString());
         }
         override ASTType type() const {
             return ASTType.REPEAT;
+        }
+        const(AST) getRule() const {
+            return this.rule;
         }
 }
 
@@ -114,6 +137,16 @@ class Literal : AST {
 
         string getLiteral() const {
             return this.s;
+        }
+}
+
+class EOF : AST {
+    public:
+        override string toString() const {
+            return "<EOF>";
+        }
+        override ASTType type() const {
+            return ASTType.EOF;
         }
 }
 
