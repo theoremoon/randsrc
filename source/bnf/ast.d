@@ -4,8 +4,17 @@ import std.algorithm;
 import std.conv : to;
 import std.string;
 
+enum ASTType {
+    REPEAT,
+    CHOICE,
+    LIST,
+    RULENAME,
+    LITERAL,
+}
+
 abstract class AST {
     public:
+        ASTType type() const;
         override string toString() const;
 }
 
@@ -29,6 +38,9 @@ class Repeat : AST {
         override string toString() const {
             return "[%s]".format(this.rule.toString());
         }
+        override ASTType type() const {
+            return ASTType.REPEAT;
+        }
 }
 
 class Choice : AST {
@@ -40,6 +52,12 @@ class Choice : AST {
         }
         override string toString() const {
             return this.rules.map!(to!string).join(" | ");
+        }
+        override ASTType type() const {
+            return ASTType.CHOICE;
+        }
+        const(AST[]) getChoices() const {
+            return this.rules;
         }
 }
 
@@ -53,6 +71,12 @@ class List : AST {
         override string toString() const {
             return this.rules.map!(to!string).join(" ");
         }
+        override ASTType type() const {
+            return ASTType.LIST;
+        }
+        const(AST[]) getRules() const {
+            return this.rules;
+        }
 }
 
 class RuleName : AST {
@@ -65,6 +89,13 @@ class RuleName : AST {
         override string toString() const {
             return "<%s>".format(this.name);
         }
+        override ASTType type() const {
+            return ASTType.RULENAME;
+        }
+
+        string getName() const {
+            return this.name;
+        }
 }
 
 class Literal : AST {
@@ -76,6 +107,13 @@ class Literal : AST {
         }
         override string toString() const {
             return "\"%s\"".format(this.s.replace("\"", "\\\""));
+        }
+        override ASTType type() const {
+            return ASTType.LITERAL;
+        }
+
+        string getLiteral() const {
+            return this.s;
         }
 }
 

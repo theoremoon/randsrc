@@ -1,8 +1,8 @@
 {
 	"authors": [
-		"user"
+		"theoremoon"
 	],
-	"description": "A minimal D application.",
-	"license": "proprietary",
+	"description": "Generate random strings that derived by a given BNF",
+	"license": "MIT",
 	"name": "randsrc"
 }

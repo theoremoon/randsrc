@@ -73,10 +73,10 @@ struct Source {
         }
 
         static Source fromFile(string path) {
-            return Source(readText(path), path, 0, 0);
+            return Source(readText(path), path, 0, 1);
         }
         static Source fromString(string src) {
-            return Source(src, "<string>", 0, 0);
+            return Source(src, "<string>", 0, 1);
         }
 
         unittest {
