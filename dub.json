@@ -3,6 +3,6 @@
 		"theoremoon"
 	],
 	"description": "Generate random strings that derived by a given BNF",
-	"license": "MIT",
+	"license": "Apache-2.0",
 	"name": "randsrc"
 }

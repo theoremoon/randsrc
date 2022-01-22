@@ -1,0 +1,154 @@
+program              = EOF
+                     | input_item program
+                     ;
+
+
+input_item           = semicolon_list NEWLINE
+                     | function
+                     ;
+
+
+semicolon_list       = ""
+                     | statement
+                     | semicolon_list ';' statement
+                     | semicolon_list ';'
+                     ;
+
+
+statement_list       = ""
+                     | statement
+                     | statement_list NEWLINE
+                     | statement_list NEWLINE statement
+                     | statement_list ';'
+                     | statement_list ';' statement
+                     ;
+
+
+statement            = expression
+                     | STRING
+                     | Break
+                     | Quit
+                     | Return
+                     | Return '(' return_expression ')'
+                     | For '(' expression ';'
+                           relational_expression ';'
+                           expression ')' statement
+                     | If '(' relational_expression ')' statement
+                     | While '(' relational_expression ')' statement
+                     | '{' statement_list '}'
+                     ;
+
+
+function             = Define " " LETTER '(' opt_parameter_list ')'
+                           '{' NEWLINE opt_auto_define_list
+                           statement_list '}'
+                     ;
+
+
+opt_parameter_list   = ""
+                     | parameter_list
+                     ;
+
+
+parameter_list       = LETTER
+                     | define_list ',' LETTER
+                     ;
+
+
+opt_auto_define_list = ""
+                     | Auto " " define_list NEWLINE
+                     | Auto " " define_list ';'
+                     ;
+
+
+define_list          = LETTER
+                     | LETTER '[' ']'
+                     | define_list ',' LETTER
+                     | define_list ',' LETTER '[' ']'
+                     ;
+
+
+opt_argument_list    = ""
+                     | argument_list
+                     ;
+
+
+argument_list        = expression
+                     | LETTER '[' ']' ',' argument_list
+                     ;
+
+
+relational_expression = expression
+                     | expression REL_OP expression
+                     ;
+
+
+return_expression    = ""
+                     | expression
+                     ;
+
+
+expression           = named_expression
+                     | NUMBER
+                     | '(' expression ')'
+                     | LETTER '(' opt_argument_list ')'
+                     | '-' expression
+                     | expression '+' expression
+                     | expression '-' expression
+                     | expression MUL_OP expression
+                     | expression '^' expression
+                     | INCR_DECR named_expression
+                     | named_expression INCR_DECR
+                     | named_expression ASSIGN_OP expression
+                     | Length '(' expression ')'
+                     | Sqrt '(' expression ')'
+                     | Scale '(' expression ')'
+                     ;
+
+
+named_expression     = LETTER
+                     | LETTER '[' expression ']'
+                     | Scale
+                     | Ibase
+                     | Obase
+                     ;
+
+NEWLINE = EOL;
+STRING = '"' { "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J" | "K" | "L" | "M" | "N" | "O" | "P" | "Q" | "R" | "S" | "T" | "U" | "V" | "W" | "X" | "Y" | "Z" | "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i" | "j" | "k" | "l" | "m" | "n" | "o" | "p" | "q" | "r" | "s" | "t" | "u" | "v" | "w" | "x" | "y" | "z" } '"';
+
+LETTER = "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i" | "j" | "k" | "l" | "m" | "n" | "o" | "p" | "q" | "r" | "s" | "t" | "u" | "v" | "w" | "x" | "y" | "z" ;
+
+
+NUMBER  = integer
+        | '.' integer
+        | integer '.'
+        | integer '.' integer
+        ;
+
+
+integer = digit
+        | integer digit
+        ;
+
+
+digit   = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7"
+        | "8" | "9" | "A" | "B" | "C" | "D" | "E" | "F"
+        ;
+
+MUL_OP = "*" | "/" | "%" ;
+ASSIGN_OP = "=" | "+=" | "-=" | "*=" | "/=" | "%=" | "^=" ;
+REL_OP = "==" | "<=" | ">=" | "!=" | "<" | ">";
+INCR_DECR = "++" | "--";
+Define = "define";
+Break = "break";
+Quit = "quit";
+Length = "length";
+Return = "return";
+For = "for";
+If = "if";
+While = "while";
+Sqrt = "sqrt";
+Scale = "scale";
+Ibase = "ibase";
+Obase = "obase";
+Auto = "auto";
