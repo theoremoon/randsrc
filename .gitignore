@@ -1,0 +1,15 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/randsrc
+randsrc.so
+randsrc.dylib
+randsrc.dll
+randsrc.a
+randsrc.lib
+randsrc-test-*
+*.exe
+*.o
+*.obj
+*.lst
